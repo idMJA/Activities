@@ -29,7 +29,6 @@ const verifyDiscordRequest = (clientPublicKey) => {
 
 // Start the client and initialize components
 client.start({
-  // Add verification middleware
   verifyMiddleware: verifyDiscordRequest(config.secret.publicKey)
 })
 .then(() => {
@@ -38,36 +37,57 @@ client.start({
 })
 .catch(console.error);
 
-// Optional: Add debug logging
 client.on("debug", debug => console.log(debug));
 
 client.on("interactionCreate", async (interaction) => {
-  // Command handler
-  if (interaction.type === 2) { // COMMAND
-    const command = client.commands.get(interaction.data.name);
-    if (!command) return;
+  // Immediately acknowledge the interaction
+  await interaction.deferReply().catch(console.error);
+  
+  try {
+    // Command handler
+    if (interaction.type === 2) { // COMMAND
+      const command = client.commands.get(interaction.data.name);
+      if (!command) return;
+      
+      // Execute command with timeout handling
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Command timed out')), 2500);
+      });
+      
+      await Promise.race([
+        command.execute(interaction, client),
+        timeoutPromise
+      ]);
+    }
     
-    try {
-      await command.execute(interaction, client);
-    } catch (error) {
-      console.error(error);
-      await interaction.reply({ content: "There was an error executing this command!", ephemeral: true });
+    // Button handler
+    if (interaction.type === 3 && interaction.data.component_type === 2) {
+      const command = client.commands.get("report");
+      if (command.buttonHandler) {
+        await command.buttonHandler(interaction, client);
+      }
     }
-  }
-  
-  // Button handler
-  if (interaction.type === 3 && interaction.data.component_type === 2) { // BUTTON
-    const command = client.commands.get("report"); // karena ini khusus untuk command report
-    if (command.buttonHandler) {
-      await command.buttonHandler(interaction, client);
+    
+    // Modal handler
+    if (interaction.type === 5) {
+      const command = client.commands.get("report");
+      if (command.modalHandler) {
+        await command.modalHandler(interaction, client);
+      }
     }
-  }
-  
-  // Modal handler
-  if (interaction.type === 5) { // MODAL_SUBMIT
-    const command = client.commands.get("report"); // karena ini khusus untuk command report
-    if (command.modalHandler) {
-      await command.modalHandler(interaction, client);
+  } catch (error) {
+    console.error(error);
+    // Send error response if we haven't responded yet
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.reply({ 
+        content: "An error occurred while processing your request. Please try again.",
+        ephemeral: true 
+      });
+    } else {
+      await interaction.editReply({
+        content: "An error occurred while processing your request. Please try again.",
+        ephemeral: true
+      });
     }
   }
 });
