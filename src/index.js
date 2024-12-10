@@ -1,4 +1,5 @@
 const { Application } = require('interactions.js');
+const { verifyKey } = require('discord-interactions');
 const config = require('./config');
 
 /* Initialize client */
@@ -8,13 +9,34 @@ const client = new Application({
   applicationId: config.secret.applicationId,
 });
 
+// Verification middleware
+const verifyDiscordRequest = (clientPublicKey) => {
+  return function(req, res, buf) {
+    const signature = req.headers['x-signature-ed25519'];
+    const timestamp = req.headers['x-signature-timestamp'];
+    
+    try {
+      const isValidRequest = verifyKey(buf, signature, timestamp, clientPublicKey);
+      if (!isValidRequest) {
+        throw new Error('Invalid request signature');
+      }
+    } catch (err) {
+      res.status(401).send('Invalid request signature');
+      throw new Error('Invalid request signature');
+    }
+  }
+};
+
 // Start the client and initialize components
-client.start()
-  .then(() => {
-    console.log("Client Started");
-    require('./util/httpClient')(client);
-  })
-  .catch(console.error);
+client.start({
+  // Add verification middleware
+  verifyMiddleware: verifyDiscordRequest(config.secret.publicKey)
+})
+.then(() => {
+  console.log("Client Started");
+  require('./util/httpClient')(client);
+})
+.catch(console.error);
 
 // Optional: Add debug logging
 client.on("debug", debug => console.log(debug));
