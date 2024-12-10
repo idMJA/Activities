@@ -1,0 +1,22 @@
+{
+  "name": "activities",
+  "version": "0.0.1",
+  "description": "kucing",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node .",
+    "dev": "node --watch-path src ."
+  },
+  "author": "iaMJ",
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/rest": "^2.4.0",
+    "discord-api-types": "^0.37.111",
+    "discord-interactions": "^4.1.0",
+    "dotenv": "^16.4.7",
+    "interactions.js": "^1.2.18"
+  },
+  "engines": {
+    "node": ">=16.x"
+  }
+}
